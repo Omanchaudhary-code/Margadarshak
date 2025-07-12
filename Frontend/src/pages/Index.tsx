@@ -10,8 +10,7 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       <div className="relative">
         {/* Hero Section */}
-        <section className="pt-20 pb-16 px-4 sm:px-6 lg:px-8 ">
-          
+        <section className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
               <div className="inline-flex items-center px-4 py-2 bg-blue-50 border border-blue-200 rounded-full text-sm font-medium text-blue-700 mb-6">
@@ -84,7 +83,7 @@ const Index = () => {
                   <CardTitle className="text-xl text-gray-900">Artificial Intelligence & Machine Learning</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">Advanced statistical modeling with 10,000+ simulation iterations for precise probability calculations.</p>
+                  <p className="text-gray-600">Advanced statistical modeling with 5,000+ simulation iterations for precise probability calculations.</p>
                 </CardContent>
               </Card>
 
@@ -124,7 +123,7 @@ const Index = () => {
                   <CardTitle className="text-xl text-gray-900">Quick & Easy</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">Complete assessment in under 3 minutes. No complex forms or lengthy questionnaires required.</p>
+                  <p className="text-gray-600">Complete assessment in under  minutes. No complex forms or lengthy questionnaires required.</p>
                 </CardContent>
               </Card>
 

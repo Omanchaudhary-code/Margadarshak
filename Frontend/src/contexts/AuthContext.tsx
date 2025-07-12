@@ -43,6 +43,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Handle successful signup/signin redirects
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Only redirect if we're not already on dashboard
+          if (!window.location.pathname.includes('/dashboard')) {
+            setTimeout(() => {
+              window.location.href = '/dashboard';
+            }, 100);
+          }
+        }
       }
     );
 
@@ -77,7 +87,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
     try {
       setLoading(true);
-      const redirectUrl = `${window.location.origin}/calculator`;
+      const redirectUrl = `${window.location.origin}/dashboard`;
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -92,6 +102,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) throw error;
       console.log('Email sign-up successful:', data);
+      
+      // If user is immediately confirmed (no email verification required)
+      if (data.user && data.session) {
+        // User is already signed in, redirect will be handled by onAuthStateChange
+        console.log('User signed up and confirmed immediately');
+      }
     } catch (error) {
       console.error('Error signing up with email:', error);
       throw error;

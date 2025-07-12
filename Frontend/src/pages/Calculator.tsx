@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,19 +7,23 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, ArrowLeft, Info } from "lucide-react";
+import { ArrowRight, ArrowLeft, Info, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginModal from "@/components/LoginModal";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useFormBuffer } from "@/hooks/useFormBuffer";
 
 const Calculator = () => {
   const navigate = useNavigate();
   const { user, isLoggedIn } = useAuth();
   const { toast } = useToast();
+  const { bufferFormData, checkForExistingData, clearBuffer, markAsCompleted } = useFormBuffer();
+  
   const [currentStep, setCurrentStep] = useState(1);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingData, setIsCheckingData] = useState(true);
   const [formData, setFormData] = useState({
     repeatedCourse: "",
     attendanceLevel: 80,
@@ -33,6 +36,35 @@ const Calculator = () => {
   const totalSteps = 3;
   const progress = (currentStep / totalSteps) * 100;
 
+  // Check for existing data on component mount and auth changes
+  useEffect(() => {
+    const checkData = async () => {
+      setIsCheckingData(true);
+      const existingData = await checkForExistingData();
+      
+      if (existingData) {
+        if (existingData.status === 'completed') {
+          // User has completed assessment, redirect to dashboard
+          navigate('/dashboard', { replace: true });
+          return;
+        } else if (existingData.status === 'pending') {
+          // Load buffered data into form
+          setFormData({
+            repeatedCourse: existingData.repeatedCourse,
+            attendanceLevel: existingData.attendanceLevel,
+            partTimeJob: existingData.partTimeJob,
+            motivationLevel: existingData.motivationLevel,
+            firstGeneration: existingData.firstGeneration,
+            friendAcademics: existingData.friendAcademics,
+          });
+        }
+      }
+      setIsCheckingData(false);
+    };
+
+    checkData();
+  }, [user, isLoggedIn]);
+
   // Check if user came back from authentication
   useEffect(() => {
     if (isLoggedIn && showLoginModal) {
@@ -42,7 +74,11 @@ const Calculator = () => {
   }, [isLoggedIn]);
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
+    
+    // Buffer data on each change
+    bufferFormData(newFormData);
   };
 
   const handleNext = () => {
@@ -68,7 +104,7 @@ const Calculator = () => {
         return;
       }
 
-      // Check if user is authenticated using Supabase
+      // Check if user is authenticated
       const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error) {
@@ -76,8 +112,8 @@ const Calculator = () => {
       }
       
       if (!user) {
-        // Store form data temporarily before showing login modal
-        localStorage.setItem('pendingAssessmentData', JSON.stringify(formData));
+        // Buffer data before showing login modal
+        await bufferFormData(formData);
         setShowLoginModal(true);
         setIsSubmitting(false);
         return;
@@ -97,12 +133,12 @@ const Calculator = () => {
 
   const callFastAPIModel = async (assessmentData: any) => {
     const payload = {
-      repeatedCourses: assessmentData.repeatedCourse === "Yes",
-      attendance: assessmentData.attendanceLevel,
-      hasPartTimeJob: assessmentData.partTimeJob === "Yes",
-      motivation: assessmentData.motivationLevel,
-      isFirstGenCollegeStudent: assessmentData.firstGeneration === "Yes",
-      friendAcademicSupport: assessmentData.friendAcademics,
+      repeated_course: assessmentData.repeatedCourse === "Yes" ? 1 : 0,
+      attendance: parseFloat(assessmentData.attendanceLevel.toString()),
+      part_time_job: assessmentData.partTimeJob === "Yes" ? 1 : 0,
+      motivation_level: parseFloat(assessmentData.motivationLevel.toString()),
+      first_generation: assessmentData.firstGeneration === "Yes" ? 1 : 0,
+      friends_performance: parseFloat(assessmentData.friendAcademics.toString()),
     };
 
     console.log('Sending payload to FastAPI:', payload);
@@ -129,10 +165,6 @@ const Calculator = () => {
     try {
       setIsSubmitting(true);
       
-      // Get form data from localStorage if it was stored during login flow
-      const storedData = localStorage.getItem('pendingAssessmentData');
-      const dataToSubmit = storedData ? JSON.parse(storedData) : formData;
-      
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
@@ -140,57 +172,54 @@ const Calculator = () => {
         throw new Error('User not authenticated');
       }
 
-      // Submit to try_calculator_inputs table
+      // Call FastAPI model to get predicted CGPA and recommendation
+      const modelResponse = await callFastAPIModel(formData);
+      const predictedCgpa = parseFloat(modelResponse.predicted_cgpa);
+      const recommendation = modelResponse.recommendation || '';
+
+      console.log('Model response data:', { predictedCgpa, recommendation });
+
+      // Submit to try_calculator_inputs table with recommendation
       const { error: insertError } = await supabase
         .from('try_calculator_inputs')
         .insert([{
-          repeated_course: dataToSubmit.repeatedCourse === "Yes",
-          attendance_level: dataToSubmit.attendanceLevel,
-          part_time_job: dataToSubmit.partTimeJob === "Yes",
-          motivation_level: dataToSubmit.motivationLevel,
-          first_generation: dataToSubmit.firstGeneration === "Yes",
-          friend_academics: dataToSubmit.friendAcademics,
+          given_compart_exam: formData.repeatedCourse === "Yes",
+          attendance_level: formData.attendanceLevel,
+          part_time_job: formData.partTimeJob === "Yes",
+          motivation_level: formData.motivationLevel,
+          first_generation: formData.firstGeneration === "Yes",
+          friend_academic_level: formData.friendAcademics,
+          recommendation: recommendation,
         }]);
 
       if (insertError) {
         console.error('Error inserting try calculator inputs:', insertError);
-        throw new Error('Failed to save assessment data');
+        throw new Error(`Failed to save assessment data: ${insertError.message}`);
       }
 
-      // Call FastAPI model to get graduation probability
-      const modelResponse = await callFastAPIModel(dataToSubmit);
-      const graduationProbability = Math.round(modelResponse.graduation_probability * 100);
-
-      // Insert assessment data into existing predictions table using type assertion
-      const { error: predictionsError } = await (supabase as any)
+      // Insert assessment data into existing predictions table with recommendation
+      const { error: predictionsError } = await supabase
         .from('predictions')
         .insert([{
           user_id: user.id,
-          graduation_probability: graduationProbability,
-          gpa: 3.0, // Default value since we're not collecting this anymore
+          graduation_probability: Math.round(predictedCgpa * 25), // Convert CGPA to percentage approximation
+          gpa: predictedCgpa,
           credits_completed: 60, // Default value
           study_hours: 4, // Default value
-          attendance_rate: dataToSubmit.attendanceLevel,
+          attendance_rate: formData.attendanceLevel,
+          recommendation: recommendation,
         }]);
 
       if (predictionsError) {
         console.error('Error inserting prediction:', predictionsError);
-        // Continue anyway - we can still redirect to dashboard
+        throw new Error(`Failed to save prediction data: ${predictionsError.message}`);
       }
       
-      // Clean up pending data
-      localStorage.removeItem('pendingAssessmentData');
+      // Mark buffer as completed and clean up
+      await markAsCompleted();
       
-      // Show success toast
-      toast({
-        title: "Assessment Complete!",
-        description: `Graduation probability: ${graduationProbability}%. Redirecting you to your dashboard...`,
-      });
-      
-      // Small delay to show the success message, then redirect
-      setTimeout(() => {
-        navigate('/dashboard?from=assessment');
-      }, 2000);
+      // Redirect without any messages or alerts
+      navigate('/dashboard', { replace: true });
       
     } catch (error) {
       console.error('Error submitting assessment:', error);
@@ -199,23 +228,19 @@ const Calculator = () => {
         description: error instanceof Error ? error.message : "Failed to submit your assessment. Please try again.",
         variant: "destructive",
       });
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleLoginSuccess = () => {
     setShowLoginModal(false);
-    toast({
-      title: "Authentication Successful!",
-      description: "Processing your assessment...",
-    });
     // handleSubmitAndRedirect will be called via useEffect when isLoggedIn changes
   };
 
   const handleLoginModalClose = () => {
     setShowLoginModal(false);
     setIsSubmitting(false);
-    // Keep the pending data in localStorage in case user wants to try again
   };
 
   const handlePrevious = () => {
@@ -223,6 +248,31 @@ const Calculator = () => {
       setCurrentStep(prev => prev - 1);
     }
   };
+
+  const handleStartNewAssessment = async () => {
+    await clearBuffer();
+    setFormData({
+      repeatedCourse: "",
+      attendanceLevel: 80,
+      partTimeJob: "",
+      motivationLevel: 5,
+      firstGeneration: "",
+      friendAcademics: 5,
+    });
+    setCurrentStep(1);
+  };
+
+  // Show loading spinner while checking for existing data
+  if (isCheckingData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const renderStep = () => {
     switch (currentStep) {
@@ -251,7 +301,7 @@ const Calculator = () => {
 
               <div>
                 <Label className="text-base font-medium mb-4 block">
-                  Attendance Level: {formData.attendanceLevel}%
+                  On average, how often do you attend your classes: {formData.attendanceLevel}%
                 </Label>
                 <Slider
                   value={[formData.attendanceLevel]}
@@ -281,7 +331,7 @@ const Calculator = () => {
 
             <div className="space-y-8">
               <div>
-                <Label htmlFor="partTimeJob" className="text-base font-medium">Do you have a part-time job?</Label>
+                <Label htmlFor="partTimeJob" className="text-base font-medium">Are you doing any kind of job while going to college?</Label>
                 <Select value={formData.partTimeJob} onValueChange={(value) => handleInputChange('partTimeJob', value)}>
                   <SelectTrigger className="mt-2">
                     <SelectValue placeholder="Select an option" />
@@ -296,7 +346,7 @@ const Calculator = () => {
 
               <div>
                 <Label className="text-base font-medium mb-4 block">
-                  Motivation Level: {formData.motivationLevel}/10
+                  How motivated do you feel to complete your studies and graduate: {formData.motivationLevel}/10
                 </Label>
                 <Slider
                   value={[formData.motivationLevel]}
@@ -325,7 +375,7 @@ const Calculator = () => {
 
             <div className="space-y-8">
               <div>
-                <Label htmlFor="firstGeneration" className="text-base font-medium">Are you a first-generation college student?</Label>
+                <Label htmlFor="firstGeneration" className="text-base font-medium">Are you the first person in your family to attend college or university?</Label>
                 <Select value={formData.firstGeneration} onValueChange={(value) => handleInputChange('firstGeneration', value)}>
                   <SelectTrigger className="mt-2">
                     <SelectValue placeholder="Select an option" />
@@ -340,7 +390,7 @@ const Calculator = () => {
 
               <div>
                 <Label className="text-base font-medium mb-4 block">
-                  Friend Academic Support: {formData.friendAcademics}/10
+                  How much do your friends help you with your studies: {formData.friendAcademics}/10
                 </Label>
                 <Slider
                   value={[formData.friendAcademics]}
@@ -391,6 +441,19 @@ const Calculator = () => {
             <Info className="h-4 w-4 mr-2" />
             <span>Try it free. Sign in to view your result and save your progress.</span>
           </div>
+
+          {/* Start New Assessment Button - only show for authenticated users */}
+          {user && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                onClick={handleStartNewAssessment}
+                className="text-sm"
+              >
+                Start New Assessment
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Progress Bar */}

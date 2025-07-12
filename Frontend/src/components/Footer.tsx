@@ -1,6 +1,5 @@
-
 import { Link } from "react-router-dom";
-import { Github, Linkedin, Twitter, Mail, ArrowUp } from "lucide-react";
+import { Github, Mail, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Footer = () => {
@@ -16,29 +15,17 @@ const Footer = () => {
   ];
 
   const socialLinks = [
-    { 
-      name: "GitHub", 
-      icon: Github, 
-      url: "https://github.com", 
-      color: "hover:text-slate-600" 
+    {
+      name: "GitHub",
+      icon: Github,
+      url: "https://github.com",
+      color: "hover:text-slate-600",
     },
-    { 
-      name: "LinkedIn", 
-      icon: Linkedin, 
-      url: "https://linkedin.com", 
-      color: "hover:text-blue-600" 
-    },
-    { 
-      name: "Twitter", 
-      icon: Twitter, 
-      url: "https://twitter.com", 
-      color: "hover:text-slate-600" 
-    },
-    { 
-      name: "Email", 
-      icon: Mail, 
-      url: "mailto:contact@margadarshak.com", 
-      color: "hover:text-slate-600" 
+    {
+      name: "Email",
+      icon: Mail,
+      url: "mailto:info@margadarshak.tech",
+      color: "hover:text-slate-600",
     },
   ];
 
@@ -59,20 +46,18 @@ const Footer = () => {
               Empowering BBIS students at Kathmandu University with AI-powered graduation timeline predictions and academic insights.
             </p>
             <div className="flex items-center space-x-1 text-xs text-slate-500">
-              <span>Trusted by 10,000+ students</span>
+              <span>Trusted by 500+ students</span>
             </div>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 mb-4">
-              Quick Links
-            </h3>
+            <h3 className="text-sm font-semibold text-slate-900 mb-4">Quick Links</h3>
             <ul className="space-y-3">
               {quickLinks.map((link) => (
                 <li key={link.name}>
-                  <Link 
-                    to={link.path} 
+                  <Link
+                    to={link.path}
                     className="text-sm text-slate-600 hover:text-slate-900 transition-colors duration-200"
                   >
                     {link.name}
@@ -82,15 +67,13 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Contact & Social */}
+          {/* Connect Section */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 mb-4">
-              Connect
-            </h3>
+            <h3 className="text-sm font-semibold text-slate-900 mb-4">Connect</h3>
             <div className="space-y-3 mb-4">
               <div className="text-sm text-slate-600">
                 <div className="font-medium text-slate-700">Email</div>
-                <div>info@margadarshak.com</div>
+                <div>info@margadarshak.tech</div>
               </div>
               <div className="text-sm text-slate-600">
                 <div className="font-medium text-slate-700">University</div>
@@ -98,11 +81,7 @@ const Footer = () => {
               </div>
             </div>
             <div className="flex space-x-3">
-            {socialLinks
-              .filter(
-                (social) => social.name !== 'LinkedIn' && social.name !== 'Twitter'
-              )
-              .map((social) => (
+              {socialLinks.map((social) => (
                 <a
                   key={social.name}
                   href={social.url}
@@ -123,12 +102,12 @@ const Footer = () => {
           <div className="text-slate-500 text-sm text-center md:text-left">
             <p>&copy; 2025 Margadarshak. All rights reserved.</p>
           </div>
-          
+
           <div className="flex items-center space-x-6">
-            <Link to="/contact" className="text-slate-500 hover:text-slate-700 transition-colors duration-200 text-xs">
+            <Link to="/privacy-policy" className="text-slate-500 hover:text-slate-700 transition-colors duration-200 text-xs">
               Privacy Policy
             </Link>
-            <Link to="/contact" className="text-slate-500 hover:text-slate-700 transition-colors duration-200 text-xs">
+            <Link to="/terms" className="text-slate-500 hover:text-slate-700 transition-colors duration-200 text-xs">
               Terms of Service
             </Link>
             <Button

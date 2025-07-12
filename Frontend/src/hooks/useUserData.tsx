@@ -19,6 +19,7 @@ interface Prediction {
   study_hours: number | null;
   attendance_rate: number | null;
   created_at: string;
+  recommendation: string | string[] | null;
 }
 
 export const useUserData = () => {
